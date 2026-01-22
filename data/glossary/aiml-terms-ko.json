@@ -1,0 +1,150 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-01-23",
+  "description": "AI/ML 분야 한국어 번역 용어집",
+  "entries": [
+    {
+      "term": "Transformer",
+      "translation": "트랜스포머",
+      "category": "transformer",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "Attention",
+      "translation": "어텐션",
+      "category": "transformer",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "Self-Attention",
+      "translation": "셀프 어텐션",
+      "category": "transformer",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "Multi-Head Attention",
+      "translation": "멀티헤드 어텐션",
+      "category": "transformer",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "Neural Network",
+      "translation": "신경망",
+      "category": "neural_network",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Deep Learning",
+      "translation": "딥러닝",
+      "category": "neural_network",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "Machine Learning",
+      "translation": "머신러닝",
+      "category": "neural_network",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "Embedding",
+      "translation": "임베딩",
+      "category": "nlp",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "Fine-tuning",
+      "translation": "미세 조정",
+      "category": "nlp",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "Pre-training",
+      "translation": "사전 학습",
+      "category": "nlp",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Large Language Model",
+      "translation": "대규모 언어 모델",
+      "aliases": ["LLM"],
+      "category": "nlp",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Gradient Descent",
+      "translation": "경사 하강법",
+      "category": "optimization",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Backpropagation",
+      "translation": "역전파",
+      "category": "neural_network",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Loss Function",
+      "translation": "손실 함수",
+      "category": "loss_function",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Overfitting",
+      "translation": "과적합",
+      "category": "general",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Accuracy",
+      "translation": "정확도",
+      "category": "evaluation",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Benchmark",
+      "translation": "벤치마크",
+      "category": "general",
+      "preserveOriginal": true,
+      "frequency": "high"
+    },
+    {
+      "term": "State-of-the-art",
+      "translation": "최신 기술",
+      "aliases": ["SOTA"],
+      "category": "general",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Diffusion Model",
+      "translation": "확산 모델",
+      "category": "generative",
+      "preserveOriginal": false,
+      "frequency": "high"
+    },
+    {
+      "term": "Vision Transformer",
+      "translation": "비전 트랜스포머",
+      "aliases": ["ViT"],
+      "category": "cv",
+      "preserveOriginal": true,
+      "frequency": "high"
+    }
+  ]
+}
