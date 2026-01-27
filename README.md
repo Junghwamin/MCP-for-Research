@@ -29,6 +29,21 @@ Translate academic papers with AI/ML terminology preservation.
 - `export_translation` - Export to DOCX
 - `manage_glossary` - AI/ML terminology glossary
 
+### 3. [paper-formula-mcp](./paper-formula-mcp/)
+Analyze mathematical formulas in papers and generate Mermaid diagrams.
+
+**Tools:**
+- `extract_formulas` - Extract LaTeX formulas with role classification
+- `explain_formula` - Explain formula meaning (Korean/English)
+- `generate_formula_dependency` - Formula dependency graph
+- `generate_concept_map` - Concept relationship diagram
+- `generate_evolution_diagram` - Paper evolution timeline
+- `analyze_formula_variables` - Variable usage analysis
+- `analyze_formula_roles` - Formula role flow diagram
+
+**Formula Roles:**
+- Definition, Objective, Constraint, Theorem, Derivation, Approximation, Example, Baseline
+
 ## Installation
 
 ### paper-search-mcp
@@ -41,6 +56,13 @@ npm run build
 ### paper-translate-mcp
 ```bash
 cd paper-translate-mcp
+npm install
+npm run build
+```
+
+### paper-formula-mcp
+```bash
+cd paper-formula-mcp
 npm install
 npm run build
 ```
@@ -59,6 +81,10 @@ Add to your Claude Code settings:
     "paper-translate": {
       "command": "node",
       "args": ["path/to/paper-translate-mcp/dist/index.js"]
+    },
+    "paper-formula": {
+      "command": "node",
+      "args": ["path/to/paper-formula-mcp/dist/index.js"]
     }
   }
 }
