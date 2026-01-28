@@ -18,6 +18,7 @@ import { searchOpenReview, getOpenReviewInfo, formatOpenReviewSearchResult, form
 import { summarizePaper, formatSummary } from './tools/summarize.js';
 import { searchCache } from './cache/searchCache.js';
 import { ExportFormat, Paper } from './types/paper.js';
+import { startInteractive, interactiveAnswer, formatMenuWizardResult } from './tools/interactiveMenu.js';
 
 // Tool 정의
 const TOOLS: Tool[] = [
@@ -272,6 +273,32 @@ const TOOLS: Tool[] = [
       },
     },
   },
+  {
+    name: 'start_interactive',
+    description: '인터랙티브 기능 선택 마법사를 시작합니다. 사용 가능한 모든 도구를 카테고리별로 보여주고, 선택한 기능의 매개변수를 단계별로 수집하여 실행합니다.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'interactive_answer',
+    description: '인터랙티브 기능 선택 마법사에서 사용자의 선택/입력을 전달합니다.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sessionId: {
+          type: 'string',
+          description: '마법사 세션 ID',
+        },
+        answer: {
+          type: 'string',
+          description: '사용자의 선택값 또는 입력값',
+        },
+      },
+      required: ['sessionId', 'answer'],
+    },
+  },
 ];
 
 // MCP 서버 생성
@@ -445,6 +472,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             content: [{ type: 'text', text: 'Cache cleared successfully' }],
           };
         }
+      }
+
+      case 'start_interactive': {
+        const result = await startInteractive();
+        return {
+          content: [{ type: 'text', text: formatMenuWizardResult(result) }],
+        };
+      }
+
+      case 'interactive_answer': {
+        const result = await interactiveAnswer({
+          sessionId: args?.sessionId as string,
+          answer: args?.answer as string,
+        });
+        return {
+          content: [{ type: 'text', text: formatMenuWizardResult(result) }],
+        };
       }
 
       default:
