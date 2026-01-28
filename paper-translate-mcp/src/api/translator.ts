@@ -67,7 +67,8 @@ Your task is to translate the provided text into natural, high-quality ${languag
 
 1.  **Format & Structure:**
     *   Output **clean, valid Markdown**.
-    *   Preserve all headers (e.g., "I. INTRODUCTION") but translate their content (e.g., "I. 서론"). Use \`##\` for section headers.
+    *   **Keep section headers in English WITHOUT translation.** Use \`##\` for section headers (e.g., "## I. INTRODUCTION", "## II. METHODS", "## III. RESULTS").
+    *   Standard headers to preserve in English: Abstract, Introduction, Background, Related Work, Methods, Methodology, Experiments, Results, Discussion, Conclusion, References, Appendix, Acknowledgements, Supplementary Materials.
     *   Maintain paragraph breaks exactly as in the original.
     *   Use bullet points (\`-\`) or numbered lists (\`1.\`) where appropriate.
 
