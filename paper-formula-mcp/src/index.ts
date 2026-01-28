@@ -15,6 +15,8 @@ import { generateConceptMap, formatConceptMapResult } from './tools/conceptDiagr
 import { generateEvolutionDiagram, formatEvolutionResult } from './tools/evolutionDiagram.js';
 import { analyzeVariables, formatVariableResult } from './tools/analyzeVariables.js';
 import { analyzeRoles, formatRoleResult } from './tools/analyzeRoles.js';
+import { generateTextbook, formatTextbookResult } from './tools/generateTextbook.js';
+import { startTextbookWizard, textbookWizardAnswer, formatWizardResult } from './tools/interactiveTextbook.js';
 
 import type {
   ExtractFormulasResult,
@@ -28,6 +30,11 @@ import type {
   ConceptMapResult,
   EvolutionDiagramResult,
 } from './types/diagram.js';
+
+import type {
+  GenerateTextbookResult,
+  WizardStepResult,
+} from './types/textbook.js';
 
 // ============================================
 // MCP 도구 정의
@@ -248,6 +255,89 @@ const TOOLS: Tool[] = [
       required: ['pdfPath'],
     },
   },
+
+  // 8. 교과서 생성
+  {
+    name: 'generate_textbook',
+    description: 'Generate an educational textbook from a paper\'s formulas. Builds from basic concepts (elementary level) up to the paper\'s advanced math. Includes worked examples, exercises with full solution processes and answers, visual diagrams, and a glossary.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pdfPath: {
+          type: 'string',
+          description: 'Absolute path to the PDF file',
+        },
+        targetLevel: {
+          type: 'string',
+          enum: ['auto', 'elementary', 'middle', 'high', 'undergraduate', 'graduate'],
+          description: 'Target audience level. "auto" builds progressively from elementary to graduate (default: auto)',
+        },
+        language: {
+          type: 'string',
+          enum: ['ko', 'en'],
+          description: 'Textbook language (default: ko)',
+        },
+        maxChapters: {
+          type: 'number',
+          description: 'Maximum number of chapters (default: 8)',
+        },
+        includeExercises: {
+          type: 'boolean',
+          description: 'Include exercises with full solutions and answers (default: true)',
+        },
+        includeExamples: {
+          type: 'boolean',
+          description: 'Include worked examples (default: true)',
+        },
+        focusFormulas: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Specific formula IDs to focus on (optional)',
+        },
+        outputPath: {
+          type: 'string',
+          description: 'File path to save the textbook markdown (optional)',
+        },
+      },
+      required: ['pdfPath'],
+    },
+  },
+
+  // 9. 인터랙티브 교과서 마법사 시작
+  {
+    name: 'start_textbook_wizard',
+    description: 'Start an interactive textbook generation wizard. Analyzes the PDF and guides you through step-by-step choices (target level, language, focus area, depth, style) to create a customized educational textbook. Returns a session ID for subsequent interactions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pdfPath: {
+          type: 'string',
+          description: 'Absolute path to the PDF file',
+        },
+      },
+      required: ['pdfPath'],
+    },
+  },
+
+  // 10. 교과서 마법사 답변
+  {
+    name: 'textbook_wizard_answer',
+    description: 'Answer a question in the interactive textbook wizard. Pass the session ID from start_textbook_wizard and your selected option value. The wizard progresses through: level → language → focus → depth → style → confirm → generate.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sessionId: {
+          type: 'string',
+          description: 'Session ID from start_textbook_wizard',
+        },
+        answer: {
+          type: 'string',
+          description: 'Your answer/selection value (e.g., "auto", "ko", "all", "standard", "friendly", "yes")',
+        },
+      },
+      required: ['sessionId', 'answer'],
+    },
+  },
 ];
 
 // ============================================
@@ -367,6 +457,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
         return {
           content: [{ type: 'text', text: formatRoleResult(result) }],
+        };
+      }
+
+      // 교과서 생성
+      case 'generate_textbook': {
+        const result = await generateTextbook({
+          pdfPath: args?.pdfPath as string,
+          targetLevel: (args?.targetLevel as any) || 'auto',
+          language: (args?.language as 'ko' | 'en') || 'ko',
+          maxChapters: (args?.maxChapters as number) || 8,
+          includeExercises: (args?.includeExercises as boolean) ?? true,
+          includeExamples: (args?.includeExamples as boolean) ?? true,
+          focusFormulas: args?.focusFormulas as string[] | undefined,
+          outputPath: args?.outputPath as string | undefined,
+        });
+        return {
+          content: [{ type: 'text', text: formatTextbookResult(result) }],
+        };
+      }
+
+      // 인터랙티브 교과서 마법사 시작
+      case 'start_textbook_wizard': {
+        const result = await startTextbookWizard({
+          pdfPath: args?.pdfPath as string,
+        });
+        return {
+          content: [{ type: 'text', text: formatWizardResult(result) }],
+        };
+      }
+
+      // 교과서 마법사 답변 처리
+      case 'textbook_wizard_answer': {
+        const result = await textbookWizardAnswer({
+          sessionId: args?.sessionId as string,
+          answer: args?.answer as string,
+        });
+        return {
+          content: [{ type: 'text', text: formatWizardResult(result) }],
         };
       }
 

@@ -9,6 +9,7 @@ import type {
   ComponentExplanation,
 } from '../types/formula.js';
 import type { Concept, ConceptRelation, PaperRelation } from '../types/diagram.js';
+import type { TextbookLevel, TextbookLanguage, TextbookStyle } from '../types/textbook.js';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -406,4 +407,256 @@ Return a concise paragraph (3-5 sentences) in Korean describing the logical flow
     console.error('Role flow analysis error:', error);
     return '';
   }
+}
+
+// ============================================
+// 교과서 생성
+// ============================================
+
+export interface GenerateTextbookLLMInput {
+  paperTitle: string;
+  formulas: Formula[];
+  targetLevel: TextbookLevel;
+  language: TextbookLanguage;
+  maxChapters: number;
+  includeExercises: boolean;
+  includeExamples: boolean;
+  style?: TextbookStyle;
+}
+
+export async function generateTextbookWithLLM(input: GenerateTextbookLLMInput): Promise<string> {
+  if (!API_KEY) {
+    return createFallbackTextbook(input);
+  }
+
+  const {
+    paperTitle,
+    formulas,
+    targetLevel,
+    language,
+    maxChapters,
+    includeExercises,
+    includeExamples,
+    style = 'friendly',
+  } = input;
+
+  const langName = language === 'ko' ? 'Korean' : 'English';
+
+  // 수식 요약 준비
+  const formulaSummary = formulas
+    .slice(0, 30)
+    .map(f => {
+      const vars = f.variables.map(v => v.symbol).join(', ');
+      return `- [${f.id}] (${f.role}) LaTeX: ${f.latex.substring(0, 120)}${f.latex.length > 120 ? '...' : ''}\n  Context: ${f.context.substring(0, 150)}${f.context.length > 150 ? '...' : ''}\n  Variables: ${vars}`;
+    })
+    .join('\n');
+
+  // 수준별 가이드
+  const levelGuide: Record<TextbookLevel, string> = {
+    auto: `Build the textbook progressively from elementary school to graduate level.
+Start with basic arithmetic concepts, then vectors, matrices, probability, and build up to the paper's formulas.
+Each chapter should target a higher education level:
+- Chapters 1-2: Elementary school (ages 10-12) - Use analogies, simple numbers, real-world examples
+- Chapters 3-4: Middle school (ages 13-15) - Basic algebra, functions, vectors
+- Chapters 5-6: High school (ages 16-18) - Calculus basics, matrices, probability, complex numbers
+- Chapters 7+: University/Graduate - Full mathematical formalism connecting to the paper`,
+    elementary: 'Write for 10-12 year olds. Use only basic arithmetic. Explain with real-world analogies and pictures.',
+    middle: 'Write for 13-15 year olds. Use basic algebra and geometry. Introduce functions and simple probability.',
+    high: 'Write for 16-18 year olds. Use calculus, matrices, trigonometry. Build mathematical intuition.',
+    undergraduate: 'Write for university students. Use linear algebra, probability theory, optimization concepts.',
+    graduate: 'Write for graduate students. Use advanced math directly. Focus on the paper\'s contributions.',
+  };
+
+  // 스타일 가이드
+  const styleGuide: Record<TextbookStyle, string> = {
+    friendly: `Use a warm, conversational tone ("~해요" style in Korean, "Let's explore..." in English).
+Include analogies and metaphors. Make complex ideas feel approachable.
+Use occasional ASCII art or simple diagrams to illustrate points.`,
+    formal: `Use formal academic language. Follow traditional textbook structure with theorems, proofs, and corollaries.
+Be precise and rigorous in mathematical statements.`,
+    visual: `Emphasize visual explanations. Include ASCII art diagrams, tables, and step-by-step visual breakdowns.
+Every concept should have a visual representation. Use box-drawing characters for diagrams.`,
+    'step-by-step': `Break every formula and derivation into numbered micro-steps.
+Show every intermediate calculation. Never skip a step.
+Format: Step 1 → Step 2 → ... → Final Result.`,
+  };
+
+  const exerciseGuide = includeExercises
+    ? `CRITICAL REQUIREMENT FOR EXERCISES:
+Each chapter MUST end with 2-4 exercises.
+EVERY exercise MUST include ALL of the following:
+1. The question (clearly stated)
+2. "풀이과정:" (or "Solution Process:" in English) - Show the COMPLETE step-by-step solution process
+3. "답:" (or "Answer:" in English) - State the final answer clearly
+
+Example exercise format:
+---
+**연습문제 1.** 벡터 (3, 4)의 길이를 구하세요.
+
+**풀이과정:**
+1. 벡터의 길이 공식: $||v|| = \\sqrt{x^2 + y^2}$
+2. 대입: $||v|| = \\sqrt{3^2 + 4^2}$
+3. 계산: $= \\sqrt{9 + 16} = \\sqrt{25}$
+4. 결과: $= 5$
+
+**답:** 5
+---
+NEVER provide an exercise without its full solution process and answer.`
+    : 'Do NOT include exercises.';
+
+  const exampleGuide = includeExamples
+    ? `Include 1-2 worked examples per section with concrete numbers.
+Show the full calculation process step by step.`
+    : '';
+
+  const systemPrompt = `You are a world-class textbook author who makes complex academic papers accessible to anyone.
+You are writing a textbook in ${langName} based on a research paper.
+
+${styleGuide[style]}
+
+IMPORTANT RULES:
+1. Write in Markdown format
+2. Use LaTeX notation for ALL mathematical formulas ($$...$$ for display, $...$ for inline)
+3. Each chapter must have clear learning goals at the beginning
+4. Connect each chapter to the paper's formulas naturally
+5. Use ASCII art or simple diagrams where helpful
+6. ${exerciseGuide}
+7. ${exampleGuide}
+8. Include a glossary at the end
+9. At the end of each chapter, explicitly state which formula from the paper was covered
+10. Never make mathematical errors - verify all calculations`;
+
+  const userPrompt = `Create a textbook based on this research paper.
+
+**Paper Title**: ${paperTitle}
+
+**Key Formulas**:
+${formulaSummary}
+
+**Configuration**:
+- Target level: ${targetLevel}
+- ${levelGuide[targetLevel]}
+- Maximum chapters: ${maxChapters}
+- Language: ${langName}
+
+Write a complete textbook with ${maxChapters} chapters that builds up from foundational concepts to understanding all the key formulas in this paper.
+
+Each chapter should:
+1. Start with learning goals
+2. Introduce concepts with clear explanations
+3. Build up to one or more formulas from the paper
+4. ${includeExamples ? 'Include worked examples with full calculations' : ''}
+5. ${includeExercises ? 'End with exercises that have COMPLETE solution processes and final answers' : ''}
+
+The textbook should feel like a journey from "I know nothing" to "I understand this paper's math."`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 16000,
+    });
+
+    const content = completion.choices[0].message.content || '';
+
+    if (content.length < 200) {
+      return createFallbackTextbook(input);
+    }
+
+    return content;
+  } catch (error) {
+    console.error('Textbook generation error:', error);
+    return createFallbackTextbook(input);
+  }
+}
+
+/**
+ * API 키 없을 때 기본 교과서 생성
+ */
+function createFallbackTextbook(input: GenerateTextbookLLMInput): string {
+  const isKorean = input.language === 'ko';
+  const formulas = input.formulas;
+
+  const lines: string[] = [];
+
+  if (isKorean) {
+    lines.push(`# 📖 ${input.paperTitle} - 학습 교과서`);
+    lines.push('');
+    lines.push('> ⚠️ API 키가 설정되지 않아 기본 구조만 생성되었습니다.');
+    lines.push('> OPENAI_API_KEY를 .env 파일에 설정하면 상세한 교과서가 생성됩니다.');
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+
+    // 기본 장 구조
+    lines.push('## 1장: 기초 개념');
+    lines.push('');
+    lines.push('이 장에서는 논문을 이해하기 위한 기본 개념을 소개합니다.');
+    lines.push('');
+
+    // 수식별 장 생성
+    const roleOrder = ['definition', 'objective', 'theorem', 'derivation', 'constraint', 'approximation'];
+    let chapterNum = 2;
+
+    for (const role of roleOrder) {
+      const roleFormulas = formulas.filter(f => f.role === role);
+      if (roleFormulas.length === 0) continue;
+
+      const roleName: Record<string, string> = {
+        definition: '정의',
+        objective: '목적 함수',
+        theorem: '정리',
+        derivation: '유도',
+        constraint: '제약 조건',
+        approximation: '근사',
+      };
+
+      lines.push(`## ${chapterNum}장: ${roleName[role] || role}`);
+      lines.push('');
+
+      for (const f of roleFormulas.slice(0, 5)) {
+        lines.push(`### 수식 ${f.id}`);
+        lines.push('');
+        lines.push(`$$${f.latex}$$`);
+        lines.push('');
+        lines.push(`> ${f.context.substring(0, 200)}`);
+        lines.push('');
+
+        if (f.variables.length > 0) {
+          lines.push('**변수:**');
+          for (const v of f.variables) {
+            lines.push(`- $${v.latex}$ (${v.symbol}): ${v.meaning || '설명 필요'}`);
+          }
+          lines.push('');
+        }
+      }
+
+      chapterNum++;
+    }
+
+    lines.push('## 용어 사전');
+    lines.push('');
+    const allVars = new Set<string>();
+    for (const f of formulas) {
+      for (const v of f.variables) {
+        allVars.add(`| $${v.latex}$ | ${v.meaning || v.symbol} |`);
+      }
+    }
+    lines.push('| 기호 | 의미 |');
+    lines.push('|------|------|');
+    for (const v of [...allVars].slice(0, 30)) {
+      lines.push(v);
+    }
+  } else {
+    lines.push(`# 📖 ${input.paperTitle} - Learning Textbook`);
+    lines.push('');
+    lines.push('> ⚠️ No API key configured. Only basic structure generated.');
+    lines.push('> Set OPENAI_API_KEY in .env for detailed content.');
+  }
+
+  return lines.join('\n');
 }
