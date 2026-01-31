@@ -10,6 +10,7 @@ import type {
 } from '../types/formula.js';
 import type { Concept, ConceptRelation, PaperRelation } from '../types/diagram.js';
 import type { TextbookLevel, TextbookLanguage, TextbookStyle } from '../types/textbook.js';
+import type { GuideStyle, GuideLanguage } from '../types/guide.js';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -659,4 +660,260 @@ function createFallbackTextbook(input: GenerateTextbookLLMInput): string {
   }
 
   return lines.join('\n');
+}
+
+// ============================================
+// HOW-WHY-WHAT 가이드 생성
+// ============================================
+
+export interface GenerateGuideLLMInput {
+  paperContent: string;
+  paperTitle: string;
+  section: 'what' | 'why' | 'how' | 'findings' | 'code' | 'application' | 'appendix';
+  style: GuideStyle;
+  language: GuideLanguage;
+  previousSections?: string;
+}
+
+export async function generateGuideWithLLM(input: GenerateGuideLLMInput): Promise<string> {
+  if (!API_KEY) {
+    return createFallbackGuideSection(input);
+  }
+
+  const {
+    paperContent,
+    paperTitle,
+    section,
+    style,
+    language,
+    previousSections,
+  } = input;
+
+  const langName = language === 'ko' ? 'Korean' : 'English';
+  const langInstr = language === 'ko'
+    ? 'Write in Korean. Use English terms in parentheses for technical terms. Example: 표현력(Expressibility)'
+    : 'Write in English.';
+
+  const styleInstr: Record<GuideStyle, string> = {
+    comprehensive: 'Write very detailed explanations (1500+ lines total). Include tables, ASCII diagrams, analogies, and code blocks. Be thorough.',
+    concise: 'Write concise but clear explanations (500 lines total). Focus on key points only.',
+    practical: 'Focus on practical code examples and implementation. Every concept should have a code snippet.',
+  };
+
+  const sectionPrompts: Record<string, string> = {
+    what: `## Section: WHAT (무엇인가?)
+
+Generate the WHAT section of the HOW-WHY-WHAT guide. This section explains WHAT the paper is about.
+
+Include:
+1. **논문 개요 (Paper Overview)**: 1-paragraph summary with paper title, authors, year, key contribution
+2. **핵심 개념 3가지 (3 Core Concepts)**: Each with:
+   - Clear definition
+   - Mathematical formula in LaTeX ($$...$$ for display, $...$ for inline)
+   - Real-world analogy or intuitive explanation
+   - ASCII diagram or table if helpful
+3. **핵심 수식 정리 (Key Formulas Summary)**: Table with formula name, LaTeX, meaning, role
+
+Use this format:
+# 1. WHAT: 무엇인가?
+## 1.1 논문 개요
+## 1.2 핵심 개념
+### ① [First concept]
+### ② [Second concept]
+### ③ [Third concept]
+## 1.3 핵심 수식 정리`,
+
+    why: `## Section: WHY (왜 필요한가?)
+
+Generate the WHY section. Explain WHY this research is important.
+
+Include:
+1. **기존 문제/한계 (Existing Problems/Limitations)**: What problems existed before this paper?
+2. **이 연구의 동기 (Motivation)**: Why did the authors pursue this research?
+3. **기존 방법 vs 이 논문 비교표**: Table comparing old approaches with this paper's approach
+4. **핵심 장점 (Key Advantages)**: Bullet list of main advantages
+5. **Impact**: How does this advance the field?
+
+Use this format:
+# 2. WHY: 왜 필요한가?
+## 2.1 기존의 한계
+## 2.2 연구 동기
+## 2.3 기존 방법 vs 본 논문
+## 2.4 핵심 장점`,
+
+    how: `## Section: HOW (어떻게 작동하나?)
+
+Generate the HOW section. Explain HOW the methodology works.
+
+Include:
+1. **전체 워크플로우 (Overall Workflow)**: ASCII diagram showing the pipeline
+2. **단계별 설명 (Step-by-Step)**: Each step with:
+   - What it does
+   - Mathematical formulation (LaTeX)
+   - Input/Output
+   - Key parameters
+3. **핵심 알고리즘 (Core Algorithm)**: Pseudocode or step-by-step procedure
+4. **구현 세부사항 (Implementation Details)**: Practical details
+
+Use this format:
+# 3. HOW: 어떻게 작동하나?
+## 3.1 전체 워크플로우
+## 3.2 단계별 상세 설명
+### Step 1: ...
+### Step 2: ...
+## 3.3 핵심 알고리즘
+## 3.4 구현 세부사항`,
+
+    findings: `## Section: Key Findings & Practical Guidelines
+
+Generate a section about key findings and practical guidelines.
+
+Include:
+1. **핵심 발견 (Key Findings)**: 3-5 most important results with data/numbers
+2. **실전 지침 체크리스트 (Practical Checklist)**: Actionable checklist for practitioners
+3. **트레이드오프 분석 (Trade-off Analysis)**: Table of trade-offs
+4. **실험 결과 요약 (Results Summary)**: Key numbers and comparisons
+
+Use this format:
+# 4. 핵심 발견 & 실전 지침
+## 4.1 핵심 발견
+## 4.2 실전 지침 체크리스트
+## 4.3 트레이드오프 분석`,
+
+    code: `## Section: Practical Code Examples
+
+Generate practical Python code examples using PennyLane and/or PyTorch.
+
+Include:
+1. **환경 설정 (Setup)**: pip install commands, imports
+2. **기본 구현 (Basic Implementation)**: Core algorithm implementation
+3. **실험 재현 (Experiment Reproduction)**: Code to reproduce key results
+4. **시각화 (Visualization)**: Matplotlib code for result visualization
+
+All code must be:
+- Complete and runnable
+- Well-commented in the target language
+- Using PennyLane for quantum parts, PyTorch/NumPy for classical parts
+- Include expected output descriptions
+
+Use this format:
+# 5. 실전 코드
+## 5.1 환경 설정
+## 5.2 기본 구현
+## 5.3 실험 재현
+## 5.4 시각화`,
+
+    application: `## Section: Competition & Paper Writing Guide
+
+Generate a section about how to use this paper for competitions and paper writing.
+
+Include:
+1. **공모전 활용법 (Competition Application)**:
+   - How to reference this work
+   - How to build upon it
+   - Winning strategy tips
+2. **논문 작성 팁 (Paper Writing Tips)**:
+   - How to cite this methodology
+   - How to compare with this as a baseline
+   - Literature review positioning
+3. **확장 아이디어 (Extension Ideas)**: Novel ideas that build on this paper
+
+Use this format:
+# 6. 공모전 & 논문 활용 가이드
+## 6.1 공모전 활용법
+## 6.2 논문 작성 팁
+## 6.3 확장 아이디어`,
+
+    appendix: `## Section: Appendix
+
+Generate appendix sections.
+
+Include:
+1. **용어 사전 (Glossary)**: Table with Term | Korean | English | Definition
+2. **수식 모음 (Formula Collection)**: All key formulas in one table
+3. **참고 자료 (References)**: Related papers, tutorials, documentation links
+
+Use this format:
+# 부록
+## A. 용어 사전
+## B. 수식 모음
+## C. 참고 자료`,
+  };
+
+  const systemPrompt = `You are an expert academic paper analyst who creates educational study guides following the HOW-WHY-WHAT framework.
+
+${langInstr}
+${styleInstr[style]}
+
+Format rules:
+- Use Markdown format
+- Use LaTeX math: $inline$ and $$block$$
+- Use tables for comparisons
+- Use ASCII diagrams for workflows
+- Use code blocks for algorithms and implementations
+- Use analogies to everyday concepts for complex ideas
+- Include practical checklists where appropriate
+- Be accurate - do not invent facts not in the paper`;
+
+  const contextLimit = 12000;
+  const truncatedContent = paperContent.length > contextLimit
+    ? paperContent.substring(0, contextLimit) + '\n\n[... paper content truncated ...]'
+    : paperContent;
+
+  const userPrompt = `Paper Title: ${paperTitle}
+
+Paper Content:
+${truncatedContent}
+
+${previousSections ? `\nPrevious sections already generated:\n${previousSections.substring(0, 2000)}\n` : ''}
+
+${sectionPrompts[section]}
+
+Generate this section now. Be thorough and accurate based on the paper content.`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 16000,
+    });
+
+    const content = completion.choices[0].message.content || '';
+
+    if (content.length < 50) {
+      return createFallbackGuideSection(input);
+    }
+
+    return content;
+  } catch (error) {
+    console.error(`Guide section [${section}] generation error:`, error);
+    return createFallbackGuideSection(input);
+  }
+}
+
+/**
+ * API 키 없을 때 기본 가이드 섹션 생성
+ */
+function createFallbackGuideSection(input: GenerateGuideLLMInput): string {
+  const isKorean = input.language === 'ko';
+  const sectionTitles: Record<string, { ko: string; en: string }> = {
+    what: { ko: '# 1. WHAT: 무엇인가?', en: '# 1. WHAT: What is it?' },
+    why: { ko: '# 2. WHY: 왜 필요한가?', en: '# 2. WHY: Why is it needed?' },
+    how: { ko: '# 3. HOW: 어떻게 작동하나?', en: '# 3. HOW: How does it work?' },
+    findings: { ko: '# 4. 핵심 발견 & 실전 지침', en: '# 4. Key Findings & Guidelines' },
+    code: { ko: '# 5. 실전 코드', en: '# 5. Practical Code' },
+    application: { ko: '# 6. 공모전 & 논문 활용 가이드', en: '# 6. Competition & Paper Guide' },
+    appendix: { ko: '# 부록', en: '# Appendix' },
+  };
+
+  const title = isKorean ? sectionTitles[input.section].ko : sectionTitles[input.section].en;
+  const warning = isKorean
+    ? '> ⚠️ API 키가 설정되지 않아 기본 구조만 생성되었습니다.\n> OPENAI_API_KEY를 설정하면 상세한 가이드가 생성됩니다.'
+    : '> ⚠️ No API key configured. Only basic structure generated.\n> Set OPENAI_API_KEY for detailed content.';
+
+  return `${title}\n\n${warning}\n\n${isKorean ? '이 섹션의 내용은 API 키 설정 후 생성됩니다.' : 'Content will be generated after API key is configured.'}\n`;
 }

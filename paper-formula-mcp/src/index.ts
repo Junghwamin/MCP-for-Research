@@ -18,6 +18,8 @@ import { analyzeRoles, formatRoleResult } from './tools/analyzeRoles.js';
 import { generateTextbook, formatTextbookResult } from './tools/generateTextbook.js';
 import { startTextbookWizard, textbookWizardAnswer, formatWizardResult } from './tools/interactiveTextbook.js';
 import { startInteractive, interactiveAnswer, formatMenuWizardResult } from './tools/interactiveMenu.js';
+import { generateGuide, formatGuideResult } from './tools/generateGuide.js';
+import { startGuideWizard, guideWizardAnswer, formatGuideWizardResult } from './tools/interactiveGuide.js';
 
 import type {
   ExtractFormulasResult,
@@ -36,6 +38,11 @@ import type {
   GenerateTextbookResult,
   WizardStepResult,
 } from './types/textbook.js';
+
+import type {
+  GenerateGuideResult,
+  GuideWizardStepResult,
+} from './types/guide.js';
 
 // ============================================
 // MCP 도구 정의
@@ -368,6 +375,80 @@ const TOOLS: Tool[] = [
       required: ['sessionId', 'answer'],
     },
   },
+
+  // 13. HOW-WHY-WHAT 가이드 생성
+  {
+    name: 'generate_how_why_what_guide',
+    description: 'Generate a comprehensive HOW-WHY-WHAT study guide from a paper markdown file. Creates structured guide with core concepts (WHAT), motivation (WHY), methodology (HOW), practical code examples, and competition/paper writing tips.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        paperPath: {
+          type: 'string',
+          description: 'Absolute path to the paper markdown (.md) file',
+        },
+        guideStyle: {
+          type: 'string',
+          enum: ['comprehensive', 'concise', 'practical'],
+          description: 'Guide style: comprehensive (1500+ lines), concise (500 lines), practical (code-focused). Default: comprehensive',
+        },
+        language: {
+          type: 'string',
+          enum: ['ko', 'en'],
+          description: 'Output language (default: ko)',
+        },
+        includeCode: {
+          type: 'boolean',
+          description: 'Include practical code examples (default: true)',
+        },
+        includeCompetition: {
+          type: 'boolean',
+          description: 'Include competition/paper writing application guide (default: true)',
+        },
+        outputPath: {
+          type: 'string',
+          description: 'File path to save the guide markdown (optional, auto-generated if not provided)',
+        },
+      },
+      required: ['paperPath'],
+    },
+  },
+
+  // 14. 가이드 생성 마법사 시작
+  {
+    name: 'start_guide_wizard',
+    description: 'Start an interactive HOW-WHY-WHAT guide generation wizard. Guides you through style, language, code inclusion, and output options step by step.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        paperPath: {
+          type: 'string',
+          description: 'Absolute path to the paper markdown (.md) file',
+        },
+      },
+      required: ['paperPath'],
+    },
+  },
+
+  // 15. 가이드 마법사 답변
+  {
+    name: 'guide_wizard_answer',
+    description: 'Answer a question in the HOW-WHY-WHAT guide wizard.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sessionId: {
+          type: 'string',
+          description: 'Session ID from start_guide_wizard',
+        },
+        answer: {
+          type: 'string',
+          description: 'Your answer/selection value',
+        },
+      },
+      required: ['sessionId', 'answer'],
+    },
+  },
 ];
 
 // ============================================
@@ -543,6 +624,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
         return {
           content: [{ type: 'text', text: formatMenuWizardResult(result) }],
+        };
+      }
+
+      // HOW-WHY-WHAT 가이드 생성
+      case 'generate_how_why_what_guide': {
+        const result = await generateGuide({
+          paperPath: args?.paperPath as string,
+          guideStyle: (args?.guideStyle as any) || 'comprehensive',
+          language: (args?.language as 'ko' | 'en') || 'ko',
+          includeCode: (args?.includeCode as boolean) ?? true,
+          includeCompetition: (args?.includeCompetition as boolean) ?? true,
+          outputPath: args?.outputPath as string | undefined,
+        });
+        return {
+          content: [{ type: 'text', text: formatGuideResult(result) }],
+        };
+      }
+
+      // 가이드 마법사 시작
+      case 'start_guide_wizard': {
+        const result = await startGuideWizard({
+          paperPath: args?.paperPath as string,
+        });
+        return {
+          content: [{ type: 'text', text: formatGuideWizardResult(result) }],
+        };
+      }
+
+      // 가이드 마법사 답변
+      case 'guide_wizard_answer': {
+        const result = await guideWizardAnswer({
+          sessionId: args?.sessionId as string,
+          answer: args?.answer as string,
+        });
+        return {
+          content: [{ type: 'text', text: formatGuideWizardResult(result) }],
         };
       }
 
