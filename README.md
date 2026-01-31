@@ -30,9 +30,9 @@ Translate academic papers with AI/ML terminology preservation.
 - `manage_glossary` - AI/ML terminology glossary
 
 ### 3. [paper-formula-mcp](./paper-formula-mcp/)
-Analyze mathematical formulas in papers and generate Mermaid diagrams.
+Analyze mathematical formulas in papers, generate Mermaid diagrams, create educational textbooks, and produce HOW-WHY-WHAT study guides.
 
-**Tools:**
+**Formula Analysis Tools:**
 - `extract_formulas` - Extract LaTeX formulas with role classification
 - `explain_formula` - Explain formula meaning (Korean/English)
 - `generate_formula_dependency` - Formula dependency graph
@@ -40,6 +40,20 @@ Analyze mathematical formulas in papers and generate Mermaid diagrams.
 - `generate_evolution_diagram` - Paper evolution timeline
 - `analyze_formula_variables` - Variable usage analysis
 - `analyze_formula_roles` - Formula role flow diagram
+
+**Textbook Generation Tools:**
+- `generate_textbook` - Generate educational textbook from paper formulas
+- `start_textbook_wizard` - Interactive textbook generation wizard
+- `textbook_wizard_answer` - Answer wizard questions step by step
+
+**HOW-WHY-WHAT Guide Tools:**
+- `generate_how_why_what_guide` - Generate structured study guide (WHAT/WHY/HOW) from paper markdown
+- `start_guide_wizard` - Interactive guide generation wizard
+- `guide_wizard_answer` - Answer guide wizard questions step by step
+
+**Interactive:**
+- `start_interactive` - Interactive function selector wizard
+- `interactive_answer` - Answer interactive wizard
 
 **Formula Roles:**
 - Definition, Objective, Constraint, Theorem, Derivation, Approximation, Example, Baseline
